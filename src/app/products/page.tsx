@@ -3,9 +3,20 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { ProductCard } from "../components/product-card";
 import { Product } from "../interfaces/product";
-import { Box, Typography, Button } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Button,
+} from "@mui/material";
 import DiscountCard from "../components/discount-card";
 import { useRouter } from "next/navigation";
+import CreateProductButton from "../components/create-product-button";
+import { fetchDiscounts, fetchProducts } from "../utils/fetch-product-utils";
+import { getCartSummary } from "../utils/cart-utils";
+import ProductModal from "../components/product-modal";
+import DiscountModal from "../components/discount-modal";
+import { DiscountPayload } from "../interfaces/discountPayload";
+import { DiscountRules, DiscountTypes } from "../components/discount-modal";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,44 +25,57 @@ export default function ProductsPage() {
   const [cartItems, setCartItems] = useState<Product[]>([]);
   const [appliedDiscounts, setAppliedDiscounts] = useState<string[]>([]);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [openProductModal, setOpenProductModal] = useState(false); 
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "",
+    price: "",
+  });
+  const [openDiscountModal, setOpenDiscountModal] = useState(false); 
+  const [newDiscount, setNewDiscount] = useState({
+    discountCode: "",
+    rule: "", 
+    type: "",
+    discountPayload: {}, 
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
 
   useEffect(() => {
     setIsClient(true);
-
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get("http://127.0.0.1:3000/products");
-        setProducts(res.data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      }
-    };
-
-    const fetchDiscounts = async () => {
-      try {
-        const res = await axios.get("http://127.0.0.1:3000/discounts");
-        setDiscounts(res.data);
-      } catch (error) {
-        console.error("Error fetching discounts:", error);
-      }
-    };
-
-    fetchProducts();
-    fetchDiscounts();
+    loadProducts();
+    loadDiscounts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      const fetchedProducts = await fetchProducts();
+      setProducts(fetchedProducts);
+    } catch (error) {
+      console.error("Error loading products:", error);
+    }
+  };
+
+  const loadDiscounts = async () => {
+    try {
+      const fetchedDiscounts = await fetchDiscounts();
+      setDiscounts(fetchedDiscounts);
+    } catch (error) {
+      console.error("Error loading discounts:", error);
+    }
+  };
 
   const handleAddToCart = (product: Product) => {
     setCartItems((prevItems) => [...prevItems, product]);
   };
 
-  const handleUseDiscountCode = (discountCode: string, discountType: string) => {
+  const handleUseDiscountCode = (discountCode: string) => {
     if (appliedDiscounts.includes(discountCode)) {
       alert(`You have already used the discount code: ${discountCode}`);
       return;
     }
-    setAppliedDiscounts((prevDiscounts) => [...prevDiscounts, discountCode]);
+    setAppliedDiscounts((prev) => [...prev, discountCode]);
   };
 
   const handleResetCart = () => {
@@ -59,22 +83,7 @@ export default function ProductsPage() {
     setAppliedDiscounts([]);
   };
 
-  const getCartSummary = () => {
-    const itemSummary = cartItems.reduce(
-      (acc: { [key: string]: Product & { quantity: number } }, item: Product) => {
-        if (acc[item._id]) {
-          acc[item._id].quantity += 1;
-        } else {
-          acc[item._id] = { ...item, quantity: 1 };
-        }
-        return acc;
-      },
-      {}
-    );
-    return Object.values(itemSummary);
-  };
-
-  const cartSummary = getCartSummary();
+  const cartSummary = getCartSummary(cartItems);
 
   const handleProceedToCheckout = async () => {
     if (cartSummary.length === 0) {
@@ -89,26 +98,114 @@ export default function ProductsPage() {
           productId: item._id,
           quantity: item.quantity,
         })),
-        discounts: appliedDiscounts, 
+        discounts: appliedDiscounts,
       };
 
-      alert(`Request Data:\n${JSON.stringify(orderData, null, 2)}`);
-
       const res = await axios.post("http://127.0.0.1:3000/orders", orderData);
-
       if (res.status === 201) {
         const orderId = res.data._id;
         setOrderNumber(orderId);
         handleResetCart();
-        alert(`Order created! Order ID: ${orderId}`);
         router.push(`/orders/${orderId}`);
-      } else {
-        alert("Failed to create order.");
       }
     } catch (error) {
-      console.error("Error creating order:", error);
       alert("There was an error creating your order.");
     }
+  };
+
+  const handleChangeNewProduct = (field: string, value: string) => {
+    setNewProduct((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitProduct = async () => {
+    try {
+      const payload = {
+        name: newProduct.name,
+        category: newProduct.category,
+        price: parseInt(newProduct.price),
+      };
+      const res = await axios.post("http://127.0.0.1:3000/products", payload);
+      if (res.status === 201) {
+        loadProducts();
+        setOpenProductModal(false);
+        setNewProduct({ name: "", category: "", price: "" });
+      }
+    } catch (err) {
+      alert("Failed to create product.");
+    }
+  };
+
+  const handleChangeNewDiscount = (field: string, value: any) => {
+    console.log(`Changing ${field} to:`, value);
+    
+    setNewDiscount(prev => {
+      const updatedDiscount = JSON.parse(JSON.stringify(prev));
+      
+      if (field === "discountPayload") {
+        updatedDiscount.discountPayload = value || {};
+      } else {
+        updatedDiscount[field] = value;
+      }
+      
+      console.log("Updated discount:", updatedDiscount);
+      return updatedDiscount;
+    });
+  };
+  
+  const handleSubmitDiscount = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      console.log("Submitting discount:", newDiscount);
+      
+      if (!newDiscount.discountCode || !newDiscount.rule || !newDiscount.type) {
+        throw new Error("Missing required discount information");
+      }
+      
+      const payload = {
+        discountCode: newDiscount.discountCode,
+        rule: newDiscount.rule,
+        type: newDiscount.type,
+        discountPayload: newDiscount.discountPayload || {}, 
+      };
+      
+      console.log("Sending payload to API:", payload);
+      
+      const res = await axios.post("http://127.0.0.1:3000/discounts", payload);
+      
+      if (res.status === 201) {
+        console.log("Discount created successfully:", res.data);
+        
+        alert("Discount created successfully!");
+        
+        await loadDiscounts();
+        
+        setOpenDiscountModal(false);
+        setNewDiscount({
+          discountCode: "",
+          rule: "",
+          type: "",
+          discountPayload: {}, 
+        });
+      }
+    } catch (err) {
+      console.error("Error creating discount:", err);
+      alert(`Failed to create discount: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenDiscountModal = () => {
+    setNewDiscount({
+      discountCode: "",
+      rule: "",
+      type: "",
+      discountPayload: {}, 
+    });
+    setOpenDiscountModal(true);
   };
 
   if (!isClient) return null;
@@ -120,22 +217,21 @@ export default function ProductsPage() {
       </Typography>
 
       <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={4}>
-        {/* Product List */}
         <Box flex={2}>
-          <Typography variant="h5">Products</Typography>
+          <CreateProductButton onClick={() => setOpenProductModal(true)} />
+          <Button variant="outlined" sx={{ mt: 2, ml: 2 }} onClick={handleOpenDiscountModal}>
+            Create Discount
+          </Button>
+          <Typography variant="h5" sx={{ mt: 2 }}>Products</Typography>
           <Box display="flex" flexWrap="wrap" gap={3}>
             {products.map((product) => (
               <Box key={product._id} minWidth="200px" maxWidth="250px">
-                <ProductCard
-                  {...product}
-                  onAddToCart={() => handleAddToCart(product)}
-                />
+                <ProductCard {...product} onAddToCart={() => handleAddToCart(product)} />
               </Box>
             ))}
           </Box>
         </Box>
 
-        {/* Discount List */}
         <Box flex={1}>
           <Typography variant="h5">Available Discounts</Typography>
           {discounts.map((discount) => (
@@ -144,14 +240,11 @@ export default function ProductsPage() {
               discountCode={discount.discountCode}
               type={discount.type}
               discountPayload={discount.discountPayload}
-              onUseCode={() =>
-                handleUseDiscountCode(discount.discountCode, discount.type)
-              }
+              onUseCode={() => handleUseDiscountCode(discount.discountCode)}
             />
           ))}
         </Box>
 
-        {/* Cart Summary */}
         <Box flex={1}>
           <Typography variant="h5">Your Cart</Typography>
           {cartSummary.length === 0 ? (
@@ -161,8 +254,7 @@ export default function ProductsPage() {
               {cartSummary.map((item) => (
                 <Box key={item._id} mb={1}>
                   <Typography>
-                    {item.name} (x{item.quantity}) — ฿
-                    {(item.price * item.quantity).toLocaleString()}
+                    {item.name} (x{item.quantity}) — ฿{(item.price * item.quantity).toLocaleString()}
                   </Typography>
                 </Box>
               ))}
@@ -172,22 +264,10 @@ export default function ProductsPage() {
                 </Typography>
               ))}
 
-              <Button
-                fullWidth
-                variant="contained"
-                color="primary"
-                sx={{ mt: 2 }}
-                onClick={handleProceedToCheckout}
-              >
+              <Button fullWidth variant="contained" color="primary" sx={{ mt: 2 }} onClick={handleProceedToCheckout}>
                 Proceed to Checkout
               </Button>
-              <Button
-                fullWidth
-                variant="outlined"
-                color="secondary"
-                sx={{ mt: 2 }}
-                onClick={handleResetCart}
-              >
+              <Button fullWidth variant="outlined" color="secondary" sx={{ mt: 2 }} onClick={handleResetCart}>
                 Reset Order
               </Button>
             </Box>
@@ -195,14 +275,21 @@ export default function ProductsPage() {
         </Box>
       </Box>
 
-      {/* Order ID Display */}
-      {orderNumber && (
-        <Box mt={4}>
-          <Typography variant="h5" color="primary">
-            Your Order ID: {orderNumber}
-          </Typography>
-        </Box>
-      )}
+      <ProductModal
+        open={openProductModal}
+        onClose={() => setOpenProductModal(false)}
+        newProduct={newProduct}
+        handleChangeNewProduct={handleChangeNewProduct}
+        handleSubmitProduct={handleSubmitProduct}
+      />
+
+      <DiscountModal
+        open={openDiscountModal}
+        onClose={() => setOpenDiscountModal(false)}
+        newDiscount={newDiscount}
+        handleChangeNewDiscount={handleChangeNewDiscount}
+        handleSubmitDiscount={handleSubmitDiscount}
+      />
     </Box>
   );
 }

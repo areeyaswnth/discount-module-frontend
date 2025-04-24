@@ -41,10 +41,10 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
         }
         return null;
       case "coupon":
-        if (discountPayload?.discountPercentage) {
+        if (discountPayload?.discountPercent) {
           return (
             <Typography variant="body2">
-              {discountPayload.discountPercentage}% off your order
+              {discountPayload.discountPercent}% off your order
             </Typography>
           );
         }

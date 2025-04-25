@@ -71,44 +71,49 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
     }
   };
 
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        mb: 2,
-        cursor: "pointer",
-        transition: "transform 0.3s ease",
-        "&:hover": {
-          transform: "scale(1.05)",
-          boxShadow: 3,
-        },
-        minWidth: "200px", 
-      }}
-      onClick={onClick}
+  return <Card
+  variant="outlined"
+  sx={{
+    mb: 2,
+    cursor: "pointer",
+    transition: "transform 0.3s ease",
+    "&:hover": {
+      transform: "scale(1.03)", // scale น้อยลงหน่อยจะดูนุ่มนวล
+      boxShadow: 2,
+    },
+    maxWidth: "180px", // ปรับให้แคบลง
+    minWidth: "140px",
+  }}
+  onClick={onClick}
+>
+  <CardContent sx={{ padding: "6px 12px" }}>
+    <Typography variant="h6" sx={{ fontSize: "0.95rem", mb: 0.5 }}>
+      {discountCode}
+    </Typography>
+    <Typography
+      variant="body2"
+      color="textSecondary"
+      sx={{ fontSize: "0.7rem", mb: 0.5 }}
     >
-      <CardContent sx={{ padding: "8px 16px" }}> {/* Reduced padding */}
-        <Typography variant="h6" sx={{ fontSize: "1rem", mb: 1 }}>
-          {discountCode}
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.75rem" }} paragraph>
-          {type} discount
-        </Typography>
-        {renderDiscountDetails()}
-        <Button
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{
-            mt: 1,  
-            padding: "6px 0", 
-          }}
-          onClick={handleUseCode}
-        >
-          Use Code
-        </Button>
-      </CardContent>
-    </Card>
-  );
+      {type} discount
+    </Typography>
+    {renderDiscountDetails()}
+    <Button
+      variant="contained"
+      color="primary"
+      fullWidth
+      sx={{
+        mt: 1,
+        padding: "4px 0", // เตี้ยลงอีกนิด
+        fontSize: "0.75rem", // ตัวหนังสือเล็กลงนิด
+      }}
+      onClick={handleUseCode}
+    >
+      Use Code
+    </Button>
+  </CardContent>
+</Card>
+
 };
 
 export default DiscountCard;

@@ -26,7 +26,8 @@ const UserCard: React.FC<UserCardProps> = ({ user, onSelect, isSelected }) => {
   return (
     <Card
       sx={{
-        maxWidth: 150,
+        width: 120,  // ขนาดกว้าง
+        height: 180,  // ขนาดสูง (ยาวขึ้น)
         boxShadow: isSelected ? 6 : 3,
         borderRadius: 3,
         transition: '0.3s',
@@ -37,15 +38,8 @@ const UserCard: React.FC<UserCardProps> = ({ user, onSelect, isSelected }) => {
         padding: 1,
       }}
     >
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        mt={1}
-      >
-        <Avatar sx={{ width: 40, height: 40 }} /> {/* ลดขนาดของ Avatar */}
-      </Box>
       <CardContent sx={{ padding: 1 }}>
+
         <Typography
           variant="body2"
           component="div"
@@ -76,10 +70,10 @@ const UserCard: React.FC<UserCardProps> = ({ user, onSelect, isSelected }) => {
           variant={isSelected ? 'outlined' : 'contained'}
           color="primary"
           fullWidth
-          sx={{ mt: 1, fontSize: '0.75rem' }} 
+          sx={{ mt: 1, fontSize: '0.75rem' }}
           onClick={() => onSelect(user)}
         >
-          {isSelected ? 'Selected' : 'Select User'}
+          {isSelected ? 'Selected' : 'Select'}
         </Button>
       </CardContent>
     </Card>

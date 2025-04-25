@@ -5,6 +5,8 @@ import axios from "axios";
 import { Box, Typography, CircularProgress, Button } from "@mui/material";
 
 export default function OrderDetailPage() {
+
+  const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const params = useParams();
   const orderId = params?.id as string;
   const router = useRouter(); 
@@ -17,7 +19,7 @@ export default function OrderDetailPage() {
       if (!orderId) return;
 
       try {
-        const res = await axios.get(`http://localhost:3000/orders/${orderId}`);
+        const res = await axios.get(`${BASE_URL}/${orderId}`);
         setOrder(res.data);
       } catch (err) {
         console.error("Error loading order:", err);
@@ -47,7 +49,7 @@ export default function OrderDetailPage() {
   }
 
   const handleBack = () => {
-    router.push("/products"); // Navigate back to the products page
+    router.push("/products");
   };
 
   return (
@@ -65,7 +67,6 @@ export default function OrderDetailPage() {
       </Box>
 
       <Box mt={4}>
-        {/* Button to go back to products page */}
         <Button variant="contained" color="primary" onClick={handleBack}>
           Back to Products
         </Button>

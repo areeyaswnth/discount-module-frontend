@@ -7,7 +7,7 @@ const CATEGORY_LIST = ["Accessories", "Electronics", "Clothing"];
 interface ProductModalProps {
   open: boolean;
   onClose: () => void;
-  newProduct: { name: string; category: string; price: string };
+  newProduct: { name: string; category: string; price: number };
   handleChangeNewProduct: (field: string, value: string) => void;
   handleSubmitProduct: () => void;
 }

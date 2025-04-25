@@ -5,8 +5,8 @@ interface DiscountCardProps {
   discountCode: string;
   type: string;
   discountPayload: any;
-  onClick?: () => void; 
-  onUseCode?: (discountCode: string) => void; 
+  onClick?: () => void;
+  onUseCode?: (discountCode: string) => void;
 }
 
 const DiscountCard: React.FC<DiscountCardProps> = ({
@@ -16,7 +16,8 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
   onClick,
   onUseCode,
 }) => {
-  const handleUseCode = () => {
+  const handleUseCode = (e: React.MouseEvent) => {
+    e.stopPropagation(); 
     if (onUseCode) {
       onUseCode(discountCode);
     }
@@ -27,14 +28,14 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
       case "onTop":
         if (discountPayload?.category) {
           return (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               Applicable on category: {discountPayload.category} with {discountPayload.discountPercent}% off
             </Typography>
           );
         }
         if (discountPayload?.discountAmount) {
           return (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               Fixed discount amount: ฿{discountPayload.discountAmount}
             </Typography>
           );
@@ -43,14 +44,14 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
       case "coupon":
         if (discountPayload?.discountPercent) {
           return (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               {discountPayload.discountPercent}% off your order
             </Typography>
           );
         }
         if (discountPayload?.discountAmount) {
           return (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               Fixed discount amount: ฿{discountPayload.discountAmount}
             </Typography>
           );
@@ -59,7 +60,7 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
       case "seasonal":
         if (discountPayload?.countPerPrice) {
           return (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               Get ฿{discountPayload.discountAmount} off for every ฿{discountPayload.countPerPrice} spent
             </Typography>
           );
@@ -74,19 +75,22 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
     <Card
       variant="outlined"
       sx={{
-        mb: 3,
-        cursor: "pointer", 
+        mb: 2,
+        cursor: "pointer",
         transition: "transform 0.3s ease",
         "&:hover": {
-          transform: "scale(1.05)", 
-          boxShadow: 3, 
+          transform: "scale(1.05)",
+          boxShadow: 3,
         },
+        minWidth: "200px", 
       }}
-      onClick={onClick} 
+      onClick={onClick}
     >
-      <CardContent>
-        <Typography variant="h6">{discountCode}</Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
+      <CardContent sx={{ padding: "8px 16px" }}> {/* Reduced padding */}
+        <Typography variant="h6" sx={{ fontSize: "1rem", mb: 1 }}>
+          {discountCode}
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.75rem" }} paragraph>
           {type} discount
         </Typography>
         {renderDiscountDetails()}
@@ -94,8 +98,11 @@ const DiscountCard: React.FC<DiscountCardProps> = ({
           variant="contained"
           color="primary"
           fullWidth
-          sx={{ mt: 2 }}
-          onClick={handleUseCode} 
+          sx={{
+            mt: 1,  
+            padding: "6px 0", 
+          }}
+          onClick={handleUseCode}
         >
           Use Code
         </Button>

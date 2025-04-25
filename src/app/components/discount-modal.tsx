@@ -52,6 +52,19 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
     handleChangeNewDiscount("rule", newRule);
     handleChangeNewDiscount("discountPayload", {});
   };
+  const getRuleOptions = () => {
+    switch (newDiscount.type) {
+      case DiscountTypes.COUPON:
+        return [DiscountRules.FIXED_AMOUNT, DiscountRules.PERCENTAGE_AMOUNT];
+      case DiscountTypes.SEASONAL:
+        return [DiscountRules.PRICE];
+      case DiscountTypes.ONTOP:
+        return [DiscountRules.POINTS, DiscountRules.CATEGORY];
+      default:
+        return [];
+    }
+  };
+    
 
   const validateAndSubmit = async () => {
     setError(null);
@@ -143,18 +156,18 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             ))}
           </Select>
         </FormControl>
-
+  
         {/* Discount Rule Selection */}
         <FormControl fullWidth required>
           <InputLabel>Rule</InputLabel>
           <Select value={newDiscount.rule || ""} label="Rule" onChange={handleRuleChange}>
-            {Object.values(DiscountRules).map((r) => (
+            {getRuleOptions().map((r) => (
               <MenuItem key={r} value={r}>{r}</MenuItem>
             ))}
           </Select>
         </FormControl>
-
-        {/* Display Input Fields based on Rule */}
+  
+        {/* แสดง input fields ตาม rule */}
         {newDiscount.rule === DiscountRules.FIXED_AMOUNT && (
           <TextField
             label="Discount Amount"
@@ -165,7 +178,7 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             required
           />
         )}
-
+  
         {newDiscount.rule === DiscountRules.PERCENTAGE_AMOUNT && (
           <TextField
             label="Discount Percentage"
@@ -176,7 +189,7 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             required
           />
         )}
-
+  
         {newDiscount.rule === DiscountRules.POINTS && (
           <>
             <TextField
@@ -197,7 +210,7 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             />
           </>
         )}
-
+  
         {newDiscount.rule === DiscountRules.PRICE && (
           <>
             <TextField
@@ -218,7 +231,7 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             />
           </>
         )}
-
+  
         {newDiscount.rule === DiscountRules.CATEGORY && (
           <>
             <FormControl fullWidth required>
@@ -242,7 +255,7 @@ const DiscountModal: React.FC<DiscountModalProps> = ({ open, onClose, newDiscoun
             />
           </>
         )}
-
+  
         <Box display="flex" justifyContent="space-between" mt={2}>
           <Button 
             variant="outlined" 

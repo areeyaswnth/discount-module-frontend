@@ -11,7 +11,6 @@ import {
 import ClothingImage from "@/assets/Clothing.jpg";
 import ElectronicsImage from "@/assets/Electronics.jpg";
 import AccessoriesImage from "@/assets/Accessories.jpg";
-import { Product } from "../interfaces/product";
 
 const categoryImages: Record<string, string> = {
   Clothing: ClothingImage.src,
@@ -40,7 +39,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <Card
       sx={{
-        maxWidth: 250,
+        maxWidth: 200,
         boxShadow: 3,
         borderRadius: 3,
         transition: "0.3s",
@@ -51,7 +50,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     >
       <CardMedia
         component="img"
-        height="140"
+        height="100"
         image={fallbackImage}
         alt={name}
         sx={{ objectFit: "cover" }}

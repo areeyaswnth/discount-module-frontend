@@ -1,80 +1,87 @@
+
 "use client";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { ProductCard } from "../components/product-card";
-import { Product } from "../interfaces/product";
-import {
-  Box,
-  Typography,
-  Button,
-} from "@mui/material";
-import DiscountCard from "../components/discount-card";
+import { Box, Typography, Button, CircularProgress, TextField } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
 import { useRouter } from "next/navigation";
-import CreateProductButton from "../components/create-product-button";
-import { fetchDiscounts, fetchProducts } from "../utils/fetch-product-utils";
-import { getCartSummary } from "../utils/cart-utils";
+
+import { ProductCard } from "../components/product-card";
+import DiscountCard from "../components/discount-card";
 import ProductModal from "../components/product-modal";
 import DiscountModal from "../components/discount-modal";
-import { DiscountPayload } from "../interfaces/discountPayload";
-import { DiscountRules, DiscountTypes } from "../components/discount-modal";
+import CreateProductButton from "../components/create-product-button";
+import CreateDiscountButton from "../components/create-discount-button";
+import CreateUserButton from "../components/user-button";
+import UserModal from "../components/user-modal";  
+
+import { fetchDiscounts, fetchProducts } from "../utils/fetch-product-utils";
+import { getCartSummary } from "../utils/cart-utils";
+import theme from "../styles/theme";
+import UserCard, { User } from "../components/user-card";
+import { Product } from "../interfaces/product";
 
 export default function ProductsPage() {
+  const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const [products, setProducts] = useState<Product[]>([]);
   const [discounts, setDiscounts] = useState<any[]>([]);
-  const [isClient, setIsClient] = useState(false);
   const [cartItems, setCartItems] = useState<Product[]>([]);
   const [appliedDiscounts, setAppliedDiscounts] = useState<string[]>([]);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
-  const [openProductModal, setOpenProductModal] = useState(false); 
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    category: "",
-    price: "",
+  const [openProductModal, setOpenProductModal] = useState(false);
+  const [openDiscountModal, setOpenDiscountModal] = useState(false);
+  const [openUserModal, setOpenUserModal] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: "", category: "", price: 0 }); 
+  const [newDiscount, setNewDiscount] = useState({ discountCode: "", rule: "", type: "", discountPayload: {} });
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  const [newUser, setNewUser] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    phone: "",
+    points: "0"
   });
-  const [openDiscountModal, setOpenDiscountModal] = useState(false); 
-  const [newDiscount, setNewDiscount] = useState({
-    discountCode: "",
-    rule: "", 
-    type: "",
-    discountPayload: {}, 
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
 
   useEffect(() => {
-    setIsClient(true);
-    loadProducts();
-    loadDiscounts();
+    loadInitialData();
   }, []);
 
-  const loadProducts = async () => {
+  const loadInitialData = async () => {
     try {
-      const fetchedProducts = await fetchProducts();
-      setProducts(fetchedProducts);
+      const [products, discounts, userResponse] = await Promise.all([
+        fetchProducts(),
+        fetchDiscounts(),
+        axios.get(`${BASE_URL}/users`)
+      ]);
+      setProducts(products);
+      setDiscounts(discounts);
+      setUsers(userResponse.data);
     } catch (error) {
-      console.error("Error loading products:", error);
-    }
-  };
-
-  const loadDiscounts = async () => {
-    try {
-      const fetchedDiscounts = await fetchDiscounts();
-      setDiscounts(fetchedDiscounts);
-    } catch (error) {
-      console.error("Error loading discounts:", error);
+      console.error("Error loading initial data:", error);
     }
   };
 
   const handleAddToCart = (product: Product) => {
-    setCartItems((prevItems) => [...prevItems, product]);
+    setCartItems((prev) => [...prev, product]);
   };
 
   const handleUseDiscountCode = (discountCode: string) => {
-    if (appliedDiscounts.includes(discountCode)) {
-      alert(`You have already used the discount code: ${discountCode}`);
-      return;
-    }
+    const selectedDiscount = discounts.find((d) => d.discountCode === discountCode);
+    if (!selectedDiscount) return alert(`Invalid discount code: ${discountCode}`);
+
+    const isTypeAlreadyUsed = appliedDiscounts.some((code) => {
+      const used = discounts.find((d) => d.discountCode === code);
+      return used?.type === selectedDiscount.type;
+    });
+
+    if (isTypeAlreadyUsed) return alert(`One discount per type allowed.`);
+    if (appliedDiscounts.includes(discountCode)) return alert(`Already used this code.`);
+
     setAppliedDiscounts((prev) => [...prev, discountCode]);
   };
 
@@ -83,213 +90,191 @@ export default function ProductsPage() {
     setAppliedDiscounts([]);
   };
 
-  const cartSummary = getCartSummary(cartItems);
-
   const handleProceedToCheckout = async () => {
-    if (cartSummary.length === 0) {
-      alert("Your cart is empty.");
-      return;
-    }
+    if (!selectedUser) return alert("Please select a user before checkout.");
+    if (cartItems.length === 0) return alert("Cart is empty.");
 
     try {
       const orderData = {
-        userId: "6809d749b594afbb18a53465",
-        products: cartSummary.map((item) => ({
+        userId: selectedUser._id,
+        products: getCartSummary(cartItems).map((item) => ({
           productId: item._id,
           quantity: item.quantity,
         })),
         discounts: appliedDiscounts,
       };
 
-      const res = await axios.post("http://127.0.0.1:3000/orders", orderData);
+      const res = await axios.post(`${BASE_URL}/orders`, orderData);
       if (res.status === 201) {
-        const orderId = res.data._id;
-        setOrderNumber(orderId);
+        setOrderNumber(res.data._id);
         handleResetCart();
-        router.push(`/orders/${orderId}`);
+        router.push(`/orders/${res.data._id}`);
       }
     } catch (error) {
-      alert("There was an error creating your order.");
+      console.error(error);
+      alert("Failed to create order.");
+    }
+  };
+
+  const handleOpenUserModal = () => setOpenUserModal(true);
+  const handleCloseUserModal = () => setOpenUserModal(false);
+
+  const handleChangeNewUser = (field: string, value: string) => {
+    setNewUser((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitUser = async () => {
+    try {
+      const res = await axios.post(`${BASE_URL}/users`, newUser);
+      if (res.status === 201) {
+        setOpenUserModal(false);
+        setNewUser({
+          firstName: "",
+          lastName: "",
+          email: "",
+          password: "",
+          phone: "",
+          points: "0"
+        });
+        loadInitialData();
+      }
+    } catch {
+      alert("Failed to create user.");
     }
   };
 
   const handleChangeNewProduct = (field: string, value: string) => {
-    setNewProduct((prev) => ({ ...prev, [field]: value }));
+    if (field === "price") {
+      setNewProduct((prev) => ({ ...prev, [field]: parseFloat(value) || 0 }));
+    } else {
+      setNewProduct((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleSubmitProduct = async () => {
     try {
-      const payload = {
-        name: newProduct.name,
-        category: newProduct.category,
-        price: parseInt(newProduct.price),
-      };
-      const res = await axios.post("http://127.0.0.1:3000/products", payload);
+      const res = await axios.post(`${BASE_URL}/products`, newProduct);
       if (res.status === 201) {
-        loadProducts();
         setOpenProductModal(false);
-        setNewProduct({ name: "", category: "", price: "" });
+        setNewProduct({ name: "", category: "", price: 0 }); 
+        loadInitialData();
       }
-    } catch (err) {
+    } catch {
       alert("Failed to create product.");
     }
   };
 
-  const handleChangeNewDiscount = (field: string, value: any) => {
-    console.log(`Changing ${field} to:`, value);
-    
-    setNewDiscount(prev => {
-      const updatedDiscount = JSON.parse(JSON.stringify(prev));
-      
-      if (field === "discountPayload") {
-        updatedDiscount.discountPayload = value || {};
-      } else {
-        updatedDiscount[field] = value;
-      }
-      
-      console.log("Updated discount:", updatedDiscount);
-      return updatedDiscount;
-    });
-  };
-  
   const handleSubmitDiscount = async () => {
-    if (isSubmitting) return;
-    
-    setIsSubmitting(true);
-    
     try {
-      console.log("Submitting discount:", newDiscount);
-      
-      if (!newDiscount.discountCode || !newDiscount.rule || !newDiscount.type) {
-        throw new Error("Missing required discount information");
-      }
-      
-      const payload = {
-        discountCode: newDiscount.discountCode,
-        rule: newDiscount.rule,
-        type: newDiscount.type,
-        discountPayload: newDiscount.discountPayload || {}, 
-      };
-      
-      console.log("Sending payload to API:", payload);
-      
-      const res = await axios.post("http://127.0.0.1:3000/discounts", payload);
-      
+      const res = await axios.post(`${BASE_URL}/discounts`, newDiscount);
       if (res.status === 201) {
-        console.log("Discount created successfully:", res.data);
-        
-        alert("Discount created successfully!");
-        
-        await loadDiscounts();
-        
         setOpenDiscountModal(false);
-        setNewDiscount({
-          discountCode: "",
-          rule: "",
-          type: "",
-          discountPayload: {}, 
-        });
+        setNewDiscount({ discountCode: "", rule: "", type: "", discountPayload: {} });
+        loadInitialData();
       }
-    } catch (err) {
-      console.error("Error creating discount:", err);
-      alert(`Failed to create discount: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      alert("Failed to create discount.");
     }
   };
 
-  const handleOpenDiscountModal = () => {
-    setNewDiscount({
-      discountCode: "",
-      rule: "",
-      type: "",
-      discountPayload: {}, 
-    });
-    setOpenDiscountModal(true);
-  };
-
-  if (!isClient) return null;
-
   return (
-    <Box p={8}>
-      <Typography variant="h3" gutterBottom>
-        🛍️ Our Products
-      </Typography>
+    <ThemeProvider theme={theme}>
+      <Box p={8}>
+        <Typography variant="h3" gutterBottom>🛍️ Our Products</Typography>
 
-      <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={4}>
-        <Box flex={2}>
-          <CreateProductButton onClick={() => setOpenProductModal(true)} />
-          <Button variant="outlined" sx={{ mt: 2, ml: 2 }} onClick={handleOpenDiscountModal}>
-            Create Discount
-          </Button>
-          <Typography variant="h5" sx={{ mt: 2 }}>Products</Typography>
-          <Box display="flex" flexWrap="wrap" gap={3}>
-            {products.map((product) => (
-              <Box key={product._id} minWidth="200px" maxWidth="250px">
-                <ProductCard {...product} onAddToCart={() => handleAddToCart(product)} />
-              </Box>
+        <Box display="flex" gap={2} flexWrap="wrap">
+          {users.length === 0 ? (
+            <CircularProgress />
+          ) : (
+            users.map((u) => (
+              <UserCard 
+                key={u._id} 
+                user={u} 
+                onSelect={setSelectedUser} 
+                isSelected={selectedUser?._id === u._id} 
+              />
+            ))
+          )}
+        </Box>
+
+        <CreateProductButton onClick={() => setOpenProductModal(true)} />
+        <CreateDiscountButton onClick={() => setOpenDiscountModal(true)} />
+        <CreateUserButton onClick={handleOpenUserModal} />
+
+        <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={4}>
+          <Box flex={2}>
+            <Typography variant="h5" mt={2}>Products</Typography>
+            <Box display="flex" flexWrap="wrap" gap={1}>
+              {products.map((product) => (
+                <Box key={product._id} minWidth="200px" maxWidth="250px">
+                  <ProductCard {...product} onAddToCart={() => handleAddToCart(product)} />
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
+          <Box flex={1}>
+            <Typography variant="h5">Discounts</Typography>
+            {discounts.map((discount) => (
+              <DiscountCard
+                key={discount._id}
+                discountCode={discount.discountCode}
+                type={discount.type}
+                discountPayload={discount.discountPayload}
+                onUseCode={() => handleUseDiscountCode(discount.discountCode)}
+              />
             ))}
+          </Box>
+
+          <Box flex={1}>
+            <Typography variant="h5">Cart</Typography>
+            {cartItems.length === 0 ? (
+              <Typography color="textSecondary">Empty</Typography>
+            ) : (
+              <Box>
+                {getCartSummary(cartItems).map((item) => (
+                  <Typography key={item._id}>
+                    {item.name} (x{item.quantity}) — ฿{item.price * item.quantity}
+                  </Typography>
+                ))}
+                {appliedDiscounts.map((code, i) => (
+                  <Typography key={i} color="error">Discount: {code}</Typography>
+                ))}
+                <Button fullWidth variant="contained" color="primary" sx={{ mt: 2 }} onClick={handleProceedToCheckout}>
+                  Checkout
+                </Button>
+                <Button fullWidth variant="outlined" color="primary" sx={{ mt: 2 }} onClick={handleResetCart}>
+                  Reset
+                </Button>
+              </Box>
+            )}
           </Box>
         </Box>
 
-        <Box flex={1}>
-          <Typography variant="h5">Available Discounts</Typography>
-          {discounts.map((discount) => (
-            <DiscountCard
-              key={discount._id}
-              discountCode={discount.discountCode}
-              type={discount.type}
-              discountPayload={discount.discountPayload}
-              onUseCode={() => handleUseDiscountCode(discount.discountCode)}
-            />
-          ))}
-        </Box>
+        <ProductModal
+          open={openProductModal}
+          onClose={() => setOpenProductModal(false)}
+          newProduct={newProduct}
+          handleChangeNewProduct={handleChangeNewProduct}
+          handleSubmitProduct={handleSubmitProduct}
+        />
 
-        <Box flex={1}>
-          <Typography variant="h5">Your Cart</Typography>
-          {cartSummary.length === 0 ? (
-            <Typography color="textSecondary">Your cart is empty.</Typography>
-          ) : (
-            <Box>
-              {cartSummary.map((item) => (
-                <Box key={item._id} mb={1}>
-                  <Typography>
-                    {item.name} (x{item.quantity}) — ฿{(item.price * item.quantity).toLocaleString()}
-                  </Typography>
-                </Box>
-              ))}
-              {appliedDiscounts.map((discountCode, i) => (
-                <Typography key={i} color="error">
-                  Discount Applied: {discountCode}
-                </Typography>
-              ))}
+        <DiscountModal
+          open={openDiscountModal}
+          onClose={() => setOpenDiscountModal(false)}
+          newDiscount={newDiscount}
+          handleChangeNewDiscount={(field, value) => setNewDiscount(prev => ({ ...prev, [field]: value }))}
+          handleSubmitDiscount={handleSubmitDiscount}
+        />
 
-              <Button fullWidth variant="contained" color="primary" sx={{ mt: 2 }} onClick={handleProceedToCheckout}>
-                Proceed to Checkout
-              </Button>
-              <Button fullWidth variant="outlined" color="secondary" sx={{ mt: 2 }} onClick={handleResetCart}>
-                Reset Order
-              </Button>
-            </Box>
-          )}
-        </Box>
+        <UserModal
+          open={openUserModal}
+          onClose={handleCloseUserModal}
+          newUser={newUser}
+          handleChangeNewUser={handleChangeNewUser}
+          handleSubmitUser={handleSubmitUser}
+        />
       </Box>
-
-      <ProductModal
-        open={openProductModal}
-        onClose={() => setOpenProductModal(false)}
-        newProduct={newProduct}
-        handleChangeNewProduct={handleChangeNewProduct}
-        handleSubmitProduct={handleSubmitProduct}
-      />
-
-      <DiscountModal
-        open={openDiscountModal}
-        onClose={() => setOpenDiscountModal(false)}
-        newDiscount={newDiscount}
-        handleChangeNewDiscount={handleChangeNewDiscount}
-        handleSubmitDiscount={handleSubmitDiscount}
-      />
-    </Box>
+    </ThemeProvider>
   );
 }
